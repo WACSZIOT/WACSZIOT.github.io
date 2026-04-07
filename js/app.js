@@ -142,7 +142,8 @@ async function login() {
             alert('用户名或密码错误');
         }
     } catch (error) {
-        alert('登录失败，请检查服务器连接');
+        console.error('登录错误:', error);
+        alert('登录失败，请刷新页面重试');
     }
 }
 
@@ -168,7 +169,8 @@ async function register() {
         alert('注册成功');
         showLogin();
     } catch (error) {
-        alert('注册失败，请检查服务器连接');
+        console.error('注册错误:', error);
+        alert('注册失败，请刷新页面重试');
     }
 }
 
@@ -554,7 +556,8 @@ async function addPurchase() {
         
         alert('进货成功');
     } catch (error) {
-        alert('进货失败，请检查服务器连接');
+        console.error('进货错误:', error);
+        alert('进货失败，请刷新页面重试');
     }
 }
 
@@ -614,7 +617,8 @@ async function addSales() {
         
         alert('销货成功');
     } catch (error) {
-        alert('销货失败，请检查服务器连接');
+        console.error('销货错误:', error);
+        alert('销货失败，请刷新页面重试');
     }
 }
 
@@ -665,7 +669,8 @@ async function editItem(name) {
             await syncData();
             alert('编辑成功');
         } catch (error) {
-            alert('编辑失败，请检查服务器连接');
+            console.error('编辑错误:', error);
+            alert('编辑失败，请刷新页面重试');
         }
     }
 }
@@ -678,7 +683,8 @@ async function deleteItem(name) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            alert('删除失败，请检查服务器连接');
+            console.error('删除商品错误:', error);
+            alert('删除失败，请刷新页面重试');
         }
     }
 }
@@ -691,7 +697,8 @@ async function deleteUser(username) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            alert('删除失败，请检查服务器连接');
+            console.error('删除用户错误:', error);
+            alert('删除失败，请刷新页面重试');
         }
     }
 }
