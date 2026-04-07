@@ -1,113 +1,243 @@
-// 数据存储管理（支持本地存储和服务器存储）
+// Firebase 配置
+const firebaseConfig = {
+    apiKey: "AIzaSyC9qfBkq3W4d1e7X7e5X6e8e9e0e1e2e3e4",
+    authDomain: "warehouse-management-7c4a9.firebaseapp.com",
+    databaseURL: "https://warehouse-management-7c4a9-default-rtdb.firebaseio.com",
+    projectId: "warehouse-management-7c4a9",
+    storageBucket: "warehouse-management-7c4a9.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:1234567890abcdef"
+};
+
+// 初始化 Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// 数据存储管理（支持本地存储和 Firebase 实时数据库）
 class DataStore {
     constructor() {
-        // 检查是否在GitHub Pages或本地静态模式
-        this.useLocalStorage = true; // 默认使用本地存储
-        this.baseUrl = '';
+        // 使用 Firebase 实时数据库
+        this.useFirebase = true;
+        this.database = database;
         
-        // 初始化本地存储数据
-        this.initLocalStorage();
+        // 初始化数据
+        this.initData();
     }
 
-    // 初始化本地存储数据
-    initLocalStorage() {
-        if (!localStorage.getItem('users')) {
-            localStorage.setItem('users', JSON.stringify([{ username: 'admin', password: 'admin' }]));
-        }
-        if (!localStorage.getItem('inventory')) {
-            localStorage.setItem('inventory', JSON.stringify([]));
-        }
-        if (!localStorage.getItem('purchases')) {
-            localStorage.setItem('purchases', JSON.stringify([]));
-        }
-        if (!localStorage.getItem('sales')) {
-            localStorage.setItem('sales', JSON.stringify([]));
+    // 初始化数据
+    async initData() {
+        if (this.useFirebase) {
+            // 检查并初始化 Firebase 数据
+            const usersRef = this.database.ref('users');
+            const inventoryRef = this.database.ref('inventory');
+            const purchasesRef = this.database.ref('purchases');
+            const salesRef = this.database.ref('sales');
+
+            // 检查用户数据是否存在
+            const usersSnapshot = await usersRef.once('value');
+            if (!usersSnapshot.exists()) {
+                usersRef.set([{ username: 'admin', password: 'admin' }]);
+            }
+
+            // 检查库存数据是否存在
+            const inventorySnapshot = await inventoryRef.once('value');
+            if (!inventorySnapshot.exists()) {
+                inventoryRef.set([]);
+            }
+
+            // 检查进货数据是否存在
+            const purchasesSnapshot = await purchasesRef.once('value');
+            if (!purchasesSnapshot.exists()) {
+                purchasesRef.set([]);
+            }
+
+            // 检查销货数据是否存在
+            const salesSnapshot = await salesRef.once('value');
+            if (!salesSnapshot.exists()) {
+                salesRef.set([]);
+            }
         }
     }
 
     // 用户相关操作
     async getUsers() {
-        return JSON.parse(localStorage.getItem('users') || '[]');
+        if (this.useFirebase) {
+            const usersRef = this.database.ref('users');
+            const snapshot = await usersRef.once('value');
+            return snapshot.val() || [];
+        } else {
+            return JSON.parse(localStorage.getItem('users') || '[]');
+        }
     }
 
     async addUser(user) {
-        const users = JSON.parse(localStorage.getItem('users') || '[]');
-        users.push(user);
-        localStorage.setItem('users', JSON.stringify(users));
-        return { success: true };
+        if (this.useFirebase) {
+            const usersRef = this.database.ref('users');
+            const users = await this.getUsers();
+            users.push(user);
+            await usersRef.set(users);
+            return { success: true };
+        } else {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            users.push(user);
+            localStorage.setItem('users', JSON.stringify(users));
+            return { success: true };
+        }
     }
 
     async deleteUser(username) {
-        const users = JSON.parse(localStorage.getItem('users') || '[]');
-        const filteredUsers = users.filter(user => user.username !== username);
-        localStorage.setItem('users', JSON.stringify(filteredUsers));
-        return { success: true };
+        if (this.useFirebase) {
+            const usersRef = this.database.ref('users');
+            const users = await this.getUsers();
+            const filteredUsers = users.filter(user => user.username !== username);
+            await usersRef.set(filteredUsers);
+            return { success: true };
+        } else {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const filteredUsers = users.filter(user => user.username !== username);
+            localStorage.setItem('users', JSON.stringify(filteredUsers));
+            return { success: true };
+        }
     }
 
     // 库存相关操作
     async getInventory() {
-        return JSON.parse(localStorage.getItem('inventory') || '[]');
+        if (this.useFirebase) {
+            const inventoryRef = this.database.ref('inventory');
+            const snapshot = await inventoryRef.once('value');
+            return snapshot.val() || [];
+        } else {
+            return JSON.parse(localStorage.getItem('inventory') || '[]');
+        }
     }
 
     async addInventory(item) {
-        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-        const existingItem = inventory.find(i => i.name === item.name);
-        if (existingItem) {
-            existingItem.quantity += item.quantity;
-            existingItem.costPrice = item.costPrice;
-            existingItem.sellPrice = item.sellPrice;
+        if (this.useFirebase) {
+            const inventoryRef = this.database.ref('inventory');
+            const inventory = await this.getInventory();
+            const existingItem = inventory.find(i => i.name === item.name);
+            if (existingItem) {
+                existingItem.quantity += item.quantity;
+                existingItem.costPrice = item.costPrice;
+                existingItem.sellPrice = item.sellPrice;
+            } else {
+                inventory.push(item);
+            }
+            await inventoryRef.set(inventory);
+            return { success: true };
         } else {
-            inventory.push(item);
-        }
-        localStorage.setItem('inventory', JSON.stringify(inventory));
-        return { success: true };
-    }
-
-    async updateInventory(oldName, item) {
-        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-        const itemIndex = inventory.findIndex(i => i.name === oldName);
-        if (itemIndex !== -1) {
-            inventory[itemIndex] = {
-                name: item.name,
-                quantity: inventory[itemIndex].quantity,
-                costPrice: item.costPrice,
-                sellPrice: item.sellPrice
-            };
+            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+            const existingItem = inventory.find(i => i.name === item.name);
+            if (existingItem) {
+                existingItem.quantity += item.quantity;
+                existingItem.costPrice = item.costPrice;
+                existingItem.sellPrice = item.sellPrice;
+            } else {
+                inventory.push(item);
+            }
             localStorage.setItem('inventory', JSON.stringify(inventory));
             return { success: true };
         }
-        return { error: 'Item not found' };
+    }
+
+    async updateInventory(oldName, item) {
+        if (this.useFirebase) {
+            const inventoryRef = this.database.ref('inventory');
+            const inventory = await this.getInventory();
+            const itemIndex = inventory.findIndex(i => i.name === oldName);
+            if (itemIndex !== -1) {
+                inventory[itemIndex] = {
+                    name: item.name,
+                    quantity: inventory[itemIndex].quantity,
+                    costPrice: item.costPrice,
+                    sellPrice: item.sellPrice
+                };
+                await inventoryRef.set(inventory);
+                return { success: true };
+            }
+            return { error: 'Item not found' };
+        } else {
+            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+            const itemIndex = inventory.findIndex(i => i.name === oldName);
+            if (itemIndex !== -1) {
+                inventory[itemIndex] = {
+                    name: item.name,
+                    quantity: inventory[itemIndex].quantity,
+                    costPrice: item.costPrice,
+                    sellPrice: item.sellPrice
+                };
+                localStorage.setItem('inventory', JSON.stringify(inventory));
+                return { success: true };
+            }
+            return { error: 'Item not found' };
+        }
     }
 
     async deleteInventory(name) {
-        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-        const filteredInventory = inventory.filter(item => item.name !== name);
-        localStorage.setItem('inventory', JSON.stringify(filteredInventory));
-        return { success: true };
+        if (this.useFirebase) {
+            const inventoryRef = this.database.ref('inventory');
+            const inventory = await this.getInventory();
+            const filteredInventory = inventory.filter(item => item.name !== name);
+            await inventoryRef.set(filteredInventory);
+            return { success: true };
+        } else {
+            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+            const filteredInventory = inventory.filter(item => item.name !== name);
+            localStorage.setItem('inventory', JSON.stringify(filteredInventory));
+            return { success: true };
+        }
     }
 
     // 进货相关操作
     async getPurchases() {
-        return JSON.parse(localStorage.getItem('purchases') || '[]');
+        if (this.useFirebase) {
+            const purchasesRef = this.database.ref('purchases');
+            const snapshot = await purchasesRef.once('value');
+            return snapshot.val() || [];
+        } else {
+            return JSON.parse(localStorage.getItem('purchases') || '[]');
+        }
     }
 
     async addPurchase(purchase) {
-        const purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
-        purchases.push(purchase);
-        localStorage.setItem('purchases', JSON.stringify(purchases));
-        return { success: true };
+        if (this.useFirebase) {
+            const purchasesRef = this.database.ref('purchases');
+            const purchases = await this.getPurchases();
+            purchases.push(purchase);
+            await purchasesRef.set(purchases);
+            return { success: true };
+        } else {
+            const purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
+            purchases.push(purchase);
+            localStorage.setItem('purchases', JSON.stringify(purchases));
+            return { success: true };
+        }
     }
 
     // 销货相关操作
     async getSales() {
-        return JSON.parse(localStorage.getItem('sales') || '[]');
+        if (this.useFirebase) {
+            const salesRef = this.database.ref('sales');
+            const snapshot = await salesRef.once('value');
+            return snapshot.val() || [];
+        } else {
+            return JSON.parse(localStorage.getItem('sales') || '[]');
+        }
     }
 
     async addSales(sale) {
-        const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-        sales.push(sale);
-        localStorage.setItem('sales', JSON.stringify(sales));
-        return { success: true };
+        if (this.useFirebase) {
+            const salesRef = this.database.ref('sales');
+            const sales = await this.getSales();
+            sales.push(sale);
+            await salesRef.set(sales);
+            return { success: true };
+        } else {
+            const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+            sales.push(sale);
+            localStorage.setItem('sales', JSON.stringify(sales));
+            return { success: true };
+        }
     }
 }
 
@@ -212,6 +342,9 @@ async function showMainSection() {
     // 进入主界面时自动同步数据
     await syncData();
     
+    // 设置 Firebase 数据监听，实现自动同步
+    setupFirebaseListeners();
+    
     // 检查是否为手机端
     if (window.innerWidth <= 768) {
         // 显示手机端首页
@@ -224,6 +357,33 @@ async function showMainSection() {
         // 显示导航栏
         document.querySelector('nav').style.display = 'block';
     }
+}
+
+// 设置 Firebase 数据监听
+function setupFirebaseListeners() {
+    // 监听库存数据变化
+    database.ref('inventory').on('value', async (snapshot) => {
+        console.log('库存数据更新');
+        await updateInventoryTable();
+    });
+    
+    // 监听进货数据变化
+    database.ref('purchases').on('value', async (snapshot) => {
+        console.log('进货数据更新');
+        await updatePurchaseTable();
+    });
+    
+    // 监听销货数据变化
+    database.ref('sales').on('value', async (snapshot) => {
+        console.log('销货数据更新');
+        await updateSalesTable();
+    });
+    
+    // 监听用户数据变化
+    database.ref('users').on('value', async (snapshot) => {
+        console.log('用户数据更新');
+        await updateUsersTable();
+    });
 }
 
 // 显示手机端首页
