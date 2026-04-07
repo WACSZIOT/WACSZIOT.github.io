@@ -19,7 +19,24 @@ if (typeof firebase !== 'undefined') {
     database = firebase.database();
 }
 
-// 数据存储管理（支持本地存储和 Firebase 实时数据库）
+// 初始化数据存储
+function initDataStore() {
+    // 初始化本地存储数据作为备份
+    if (!localStorage.getItem('users')) {
+        localStorage.setItem('users', JSON.stringify([{ username: 'admin', password: 'admin' }]));
+    }
+    if (!localStorage.getItem('inventory')) {
+        localStorage.setItem('inventory', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('purchases')) {
+        localStorage.setItem('purchases', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('sales')) {
+        localStorage.setItem('sales', JSON.stringify([]));
+    }
+}
+
+// 数据存储管理（使用 Firebase 实时数据库和本地存储备份）
 class DataStore {
     constructor() {
         // 检查 Firebase 是否可用
@@ -33,34 +50,42 @@ class DataStore {
     // 初始化数据
     async initData() {
         if (this.useFirebase) {
-            // 检查并初始化 Firebase 数据
-            const usersRef = this.database.ref('users');
-            const inventoryRef = this.database.ref('inventory');
-            const purchasesRef = this.database.ref('purchases');
-            const salesRef = this.database.ref('sales');
+            try {
+                // 检查并初始化 Firebase 数据
+                const usersRef = this.database.ref('users');
+                const inventoryRef = this.database.ref('inventory');
+                const purchasesRef = this.database.ref('purchases');
+                const salesRef = this.database.ref('sales');
 
-            // 检查用户数据是否存在
-            const usersSnapshot = await usersRef.once('value');
-            if (!usersSnapshot.exists()) {
-                usersRef.set([{ username: 'admin', password: 'admin' }]);
-            }
+                // 检查用户数据是否存在
+                const usersSnapshot = await usersRef.once('value');
+                if (!usersSnapshot.exists()) {
+                    const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
+                    await usersRef.set(localUsers.length > 0 ? localUsers : [{ username: 'admin', password: 'admin' }]);
+                }
 
-            // 检查库存数据是否存在
-            const inventorySnapshot = await inventoryRef.once('value');
-            if (!inventorySnapshot.exists()) {
-                inventoryRef.set([]);
-            }
+                // 检查库存数据是否存在
+                const inventorySnapshot = await inventoryRef.once('value');
+                if (!inventorySnapshot.exists()) {
+                    const localInventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+                    await inventoryRef.set(localInventory);
+                }
 
-            // 检查进货数据是否存在
-            const purchasesSnapshot = await purchasesRef.once('value');
-            if (!purchasesSnapshot.exists()) {
-                purchasesRef.set([]);
-            }
+                // 检查进货数据是否存在
+                const purchasesSnapshot = await purchasesRef.once('value');
+                if (!purchasesSnapshot.exists()) {
+                    const localPurchases = JSON.parse(localStorage.getItem('purchases') || '[]');
+                    await purchasesRef.set(localPurchases);
+                }
 
-            // 检查销货数据是否存在
-            const salesSnapshot = await salesRef.once('value');
-            if (!salesSnapshot.exists()) {
-                salesRef.set([]);
+                // 检查销货数据是否存在
+                const salesSnapshot = await salesRef.once('value');
+                if (!salesSnapshot.exists()) {
+                    const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                    await salesRef.set(localSales);
+                }
+            } catch (error) {
+                console.error('Firebase 初始化错误:', error);
             }
         }
     }
@@ -71,7 +96,10 @@ class DataStore {
             try {
                 const usersRef = this.database.ref('users');
                 const snapshot = await usersRef.once('value');
-                return snapshot.val() || [];
+                const users = snapshot.val() || [];
+                // 备份到本地存储
+                localStorage.setItem('users', JSON.stringify(users));
+                return users;
             } catch (error) {
                 console.error('Firebase getUsers error:', error);
                 // 回退到本地存储
@@ -89,6 +117,8 @@ class DataStore {
                 const users = await this.getUsers();
                 users.push(user);
                 await usersRef.set(users);
+                // 备份到本地存储
+                localStorage.setItem('users', JSON.stringify(users));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase addUser error:', error);
@@ -113,6 +143,8 @@ class DataStore {
                 const users = await this.getUsers();
                 const filteredUsers = users.filter(user => user.username !== username);
                 await usersRef.set(filteredUsers);
+                // 备份到本地存储
+                localStorage.setItem('users', JSON.stringify(filteredUsers));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase deleteUser error:', error);
@@ -136,7 +168,10 @@ class DataStore {
             try {
                 const inventoryRef = this.database.ref('inventory');
                 const snapshot = await inventoryRef.once('value');
-                return snapshot.val() || [];
+                const inventory = snapshot.val() || [];
+                // 备份到本地存储
+                localStorage.setItem('inventory', JSON.stringify(inventory));
+                return inventory;
             } catch (error) {
                 console.error('Firebase getInventory error:', error);
                 // 回退到本地存储
@@ -161,6 +196,8 @@ class DataStore {
                     inventory.push(item);
                 }
                 await inventoryRef.set(inventory);
+                // 备份到本地存储
+                localStorage.setItem('inventory', JSON.stringify(inventory));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase addInventory error:', error);
@@ -206,6 +243,8 @@ class DataStore {
                         sellPrice: item.sellPrice
                     };
                     await inventoryRef.set(inventory);
+                    // 备份到本地存储
+                    localStorage.setItem('inventory', JSON.stringify(inventory));
                     return { success: true };
                 }
                 return { error: 'Item not found' };
@@ -250,6 +289,8 @@ class DataStore {
                 const inventory = await this.getInventory();
                 const filteredInventory = inventory.filter(item => item.name !== name);
                 await inventoryRef.set(filteredInventory);
+                // 备份到本地存储
+                localStorage.setItem('inventory', JSON.stringify(filteredInventory));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase deleteInventory error:', error);
@@ -273,7 +314,10 @@ class DataStore {
             try {
                 const purchasesRef = this.database.ref('purchases');
                 const snapshot = await purchasesRef.once('value');
-                return snapshot.val() || [];
+                const purchases = snapshot.val() || [];
+                // 备份到本地存储
+                localStorage.setItem('purchases', JSON.stringify(purchases));
+                return purchases;
             } catch (error) {
                 console.error('Firebase getPurchases error:', error);
                 // 回退到本地存储
@@ -291,6 +335,8 @@ class DataStore {
                 const purchases = await this.getPurchases();
                 purchases.push(purchase);
                 await purchasesRef.set(purchases);
+                // 备份到本地存储
+                localStorage.setItem('purchases', JSON.stringify(purchases));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase addPurchase error:', error);
@@ -314,7 +360,10 @@ class DataStore {
             try {
                 const salesRef = this.database.ref('sales');
                 const snapshot = await salesRef.once('value');
-                return snapshot.val() || [];
+                const sales = snapshot.val() || [];
+                // 备份到本地存储
+                localStorage.setItem('sales', JSON.stringify(sales));
+                return sales;
             } catch (error) {
                 console.error('Firebase getSales error:', error);
                 // 回退到本地存储
@@ -332,6 +381,8 @@ class DataStore {
                 const sales = await this.getSales();
                 sales.push(sale);
                 await salesRef.set(sales);
+                // 备份到本地存储
+                localStorage.setItem('sales', JSON.stringify(sales));
                 return { success: true };
             } catch (error) {
                 console.error('Firebase addSales error:', error);
@@ -353,8 +404,24 @@ class DataStore {
 const api = new DataStore();
 let currentUser = null;
 
-// 页面加载时检查登录状态
+// 页面加载时检查登录状态和 URL 参数
 window.onload = function() {
+    // 初始化数据存储
+    initDataStore();
+    
+    // 检查 URL 参数中的数据
+    const urlParams = new URLSearchParams(window.location.search);
+    const dataParam = urlParams.get('data');
+    if (dataParam) {
+        const result = api.importData(dataParam);
+        if (result.success) {
+            alert('数据导入成功');
+        } else {
+            alert('数据导入失败');
+        }
+    }
+    
+    // 检查登录状态
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -977,18 +1044,18 @@ async function deleteUser(username) {
 
 // 导出数据
 function exportData() {
-    alert('数据已自动同步到服务器，无需手动导出');
+    alert('数据已自动同步到云端，无需手动导出');
 }
 
 // 导入数据
 function importData() {
-    alert('数据已自动从服务器同步，无需手动导入');
+    alert('数据已自动从云端同步，无需手动导入');
 }
 
 // 同步数据
 async function syncData() {
     try {
-        // 从服务器获取最新数据
+        // 更新本地数据
         await updateInventoryTable();
         await updatePurchaseTable();
         await updateSalesTable();
