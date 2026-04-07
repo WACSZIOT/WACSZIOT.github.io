@@ -1,103 +1,117 @@
-// API接口管理
-class ApiClient {
+// 数据存储管理（支持本地存储和服务器存储）
+class DataStore {
     constructor() {
-        // 使用当前页面的主机地址，确保手机端也能访问
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        const port = 8083;
-        this.baseUrl = `${protocol}//${host}:${port}/api`;
+        // 检查是否在GitHub Pages或本地静态模式
+        this.useLocalStorage = true; // 默认使用本地存储
+        this.baseUrl = '';
+        
+        // 初始化本地存储数据
+        this.initLocalStorage();
     }
 
-    async fetchData(endpoint, options = {}) {
-        try {
-            const response = await fetch(`${this.baseUrl}/${endpoint}`, {
-                ...options,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                }
-            });
-            if (!response.ok) {
-                throw new Error('API请求失败');
-            }
-            return await response.json();
-        } catch (error) {
-            console.error('API请求错误:', error);
-            throw error;
+    // 初始化本地存储数据
+    initLocalStorage() {
+        if (!localStorage.getItem('users')) {
+            localStorage.setItem('users', JSON.stringify([{ username: 'admin', password: 'admin' }]));
+        }
+        if (!localStorage.getItem('inventory')) {
+            localStorage.setItem('inventory', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('purchases')) {
+            localStorage.setItem('purchases', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('sales')) {
+            localStorage.setItem('sales', JSON.stringify([]));
         }
     }
 
-    // 用户相关API
+    // 用户相关操作
     async getUsers() {
-        return await this.fetchData('users');
+        return JSON.parse(localStorage.getItem('users') || '[]');
     }
 
     async addUser(user) {
-        return await this.fetchData('users', {
-            method: 'POST',
-            body: JSON.stringify(user)
-        });
+        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        users.push(user);
+        localStorage.setItem('users', JSON.stringify(users));
+        return { success: true };
     }
 
     async deleteUser(username) {
-        return await this.fetchData('users', {
-            method: 'DELETE',
-            body: JSON.stringify({ username })
-        });
+        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        const filteredUsers = users.filter(user => user.username !== username);
+        localStorage.setItem('users', JSON.stringify(filteredUsers));
+        return { success: true };
     }
 
-    // 库存相关API
+    // 库存相关操作
     async getInventory() {
-        return await this.fetchData('inventory');
+        return JSON.parse(localStorage.getItem('inventory') || '[]');
     }
 
     async addInventory(item) {
-        return await this.fetchData('inventory', {
-            method: 'POST',
-            body: JSON.stringify(item)
-        });
+        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+        const existingItem = inventory.find(i => i.name === item.name);
+        if (existingItem) {
+            existingItem.quantity += item.quantity;
+            existingItem.costPrice = item.costPrice;
+            existingItem.sellPrice = item.sellPrice;
+        } else {
+            inventory.push(item);
+        }
+        localStorage.setItem('inventory', JSON.stringify(inventory));
+        return { success: true };
     }
 
     async updateInventory(oldName, item) {
-        return await this.fetchData('inventory', {
-            method: 'PUT',
-            body: JSON.stringify({ oldName, ...item })
-        });
+        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+        const itemIndex = inventory.findIndex(i => i.name === oldName);
+        if (itemIndex !== -1) {
+            inventory[itemIndex] = {
+                name: item.name,
+                quantity: inventory[itemIndex].quantity,
+                costPrice: item.costPrice,
+                sellPrice: item.sellPrice
+            };
+            localStorage.setItem('inventory', JSON.stringify(inventory));
+            return { success: true };
+        }
+        return { error: 'Item not found' };
     }
 
     async deleteInventory(name) {
-        return await this.fetchData('inventory', {
-            method: 'DELETE',
-            body: JSON.stringify({ name })
-        });
+        const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+        const filteredInventory = inventory.filter(item => item.name !== name);
+        localStorage.setItem('inventory', JSON.stringify(filteredInventory));
+        return { success: true };
     }
 
-    // 进货相关API
+    // 进货相关操作
     async getPurchases() {
-        return await this.fetchData('purchases');
+        return JSON.parse(localStorage.getItem('purchases') || '[]');
     }
 
     async addPurchase(purchase) {
-        return await this.fetchData('purchases', {
-            method: 'POST',
-            body: JSON.stringify(purchase)
-        });
+        const purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
+        purchases.push(purchase);
+        localStorage.setItem('purchases', JSON.stringify(purchases));
+        return { success: true };
     }
 
-    // 销货相关API
+    // 销货相关操作
     async getSales() {
-        return await this.fetchData('sales');
+        return JSON.parse(localStorage.getItem('sales') || '[]');
     }
 
     async addSales(sale) {
-        return await this.fetchData('sales', {
-            method: 'POST',
-            body: JSON.stringify(sale)
-        });
+        const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+        sales.push(sale);
+        localStorage.setItem('sales', JSON.stringify(sales));
+        return { success: true };
     }
 }
 
-const api = new ApiClient();
+const api = new DataStore();
 let currentUser = null;
 
 // 页面加载时检查登录状态
