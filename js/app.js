@@ -9,15 +9,21 @@ const firebaseConfig = {
     appId: "1:1234567890:web:1234567890abcdef"
 };
 
+// 全局变量
+let firebaseApp = null;
+let database = null;
+
 // 初始化 Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+if (typeof firebase !== 'undefined') {
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    database = firebase.database();
+}
 
 // 数据存储管理（支持本地存储和 Firebase 实时数据库）
 class DataStore {
     constructor() {
-        // 使用 Firebase 实时数据库
-        this.useFirebase = true;
+        // 检查 Firebase 是否可用
+        this.useFirebase = typeof firebase !== 'undefined' && database !== null;
         this.database = database;
         
         // 初始化数据
@@ -361,29 +367,32 @@ async function showMainSection() {
 
 // 设置 Firebase 数据监听
 function setupFirebaseListeners() {
-    // 监听库存数据变化
-    database.ref('inventory').on('value', async (snapshot) => {
-        console.log('库存数据更新');
-        await updateInventoryTable();
-    });
-    
-    // 监听进货数据变化
-    database.ref('purchases').on('value', async (snapshot) => {
-        console.log('进货数据更新');
-        await updatePurchaseTable();
-    });
-    
-    // 监听销货数据变化
-    database.ref('sales').on('value', async (snapshot) => {
-        console.log('销货数据更新');
-        await updateSalesTable();
-    });
-    
-    // 监听用户数据变化
-    database.ref('users').on('value', async (snapshot) => {
-        console.log('用户数据更新');
-        await updateUsersTable();
-    });
+    // 检查 Firebase 是否可用
+    if (typeof firebase !== 'undefined' && database !== null) {
+        // 监听库存数据变化
+        database.ref('inventory').on('value', async (snapshot) => {
+            console.log('库存数据更新');
+            await updateInventoryTable();
+        });
+        
+        // 监听进货数据变化
+        database.ref('purchases').on('value', async (snapshot) => {
+            console.log('进货数据更新');
+            await updatePurchaseTable();
+        });
+        
+        // 监听销货数据变化
+        database.ref('sales').on('value', async (snapshot) => {
+            console.log('销货数据更新');
+            await updateSalesTable();
+        });
+        
+        // 监听用户数据变化
+        database.ref('users').on('value', async (snapshot) => {
+            console.log('用户数据更新');
+            await updateUsersTable();
+        });
+    }
 }
 
 // 显示手机端首页
