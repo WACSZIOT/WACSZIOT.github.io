@@ -1,0 +1,14 @@
+[
+  {
+    "name": "2",
+    "quantity": 1,
+    "costPrice": 2,
+    "sellPrice": 23
+  },
+  {
+    "name": "LV双肩包",
+    "quantity": 100,
+    "costPrice": 320,
+    "sellPrice": 599
+  }
+]

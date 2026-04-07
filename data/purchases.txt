@@ -1,0 +1,16 @@
+[
+  {
+    "name": "1",
+    "quantity": 1,
+    "costPrice": 1,
+    "sellPrice": 1,
+    "date": "2026/4/1 15:44:03"
+  },
+  {
+    "name": "LV双肩包",
+    "quantity": 100,
+    "costPrice": 320,
+    "sellPrice": 599,
+    "date": "2026/4/1 16:10:16"
+  }
+]
