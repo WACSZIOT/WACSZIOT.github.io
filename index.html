@@ -47,10 +47,10 @@
             
             <nav>
                 <ul>
-                    <li><a href="#" onclick="showModule('inventory')">仓库管理</a></li>
-                    <li><a href="#" onclick="showModule('purchase')">进货管理</a></li>
-                    <li><a href="#" onclick="showModule('sales')">销货管理</a></li>
-                    <li><a href="#" onclick="showModule('users')">账号管理</a></li>
+                    <li><a href="#" onclick="(async () => { await showModule('inventory'); })()">仓库管理</a></li>
+                    <li><a href="#" onclick="(async () => { await showModule('purchase'); })()">进货管理</a></li>
+                    <li><a href="#" onclick="(async () => { await showModule('sales'); })()">销货管理</a></li>
+                    <li><a href="#" onclick="(async () => { await showModule('users'); })()">账号管理</a></li>
                 </ul>
             </nav>
             

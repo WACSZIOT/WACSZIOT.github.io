@@ -673,7 +673,10 @@ function showMobileModule(moduleName) {
 }
 
 // 显示模块
-function showModule(moduleName) {
+async function showModule(moduleName) {
+    // 同步数据
+    await syncData();
+    
     const modules = ['inventory', 'purchase', 'sales', 'users'];
     modules.forEach(name => {
         const module = document.getElementById(`${name}-module`);
