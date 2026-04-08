@@ -25,13 +25,18 @@ function initDataStore() {
 // 数据存储管理（使用 Firebase 实时数据库和本地存储备份）
 class DataStore {
     constructor() {
-        // 检查 Firebase 是否可用
-        this.useFirebase = typeof firebase !== 'undefined' && database !== null;
-        this.database = database;
-        console.log('DataStore 初始化，useFirebase:', this.useFirebase);
-        
         // 初始化数据
         this.initData();
+    }
+    
+    // 检查 Firebase 是否可用
+    get useFirebase() {
+        return typeof firebase !== 'undefined' && database !== null;
+    }
+    
+    // 获取数据库实例
+    get database() {
+        return database;
     }
 
     // 初始化数据
@@ -71,9 +76,16 @@ class DataStore {
                     const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
                     await salesRef.set(localSales);
                 }
+                console.log('Firebase 数据初始化成功');
             } catch (error) {
                 console.error('Firebase 初始化错误:', error);
             }
+        } else {
+            // Firebase 不可用，延迟重试
+            console.log('Firebase 不可用，延迟初始化数据');
+            setTimeout(() => {
+                this.initData();
+            }, 2000);
         }
     }
 
@@ -395,6 +407,9 @@ let currentUser = null;
 
 // 页面加载时检查登录状态和 URL 参数
 window.onload = function() {
+    // 初始化本地存储
+    initDataStore();
+    
     // 检查 Firebase SDK 是否加载成功
     if (typeof firebase !== 'undefined') {
         console.log('Firebase SDK 加载成功');
@@ -408,6 +423,10 @@ window.onload = function() {
             connectedRef.on('value', function(snapshot) {
                 console.log('Firebase 数据库连接状态:', snapshot.val());
             });
+            
+            // 重新初始化DataStore，确保Firebase可用
+            console.log('重新初始化DataStore以使用Firebase');
+            api.initData();
         } catch (error) {
             console.error('Firebase 初始化失败:', error);
             database = null;
@@ -421,6 +440,9 @@ window.onload = function() {
                 try {
                     database = firebase.database();
                     console.log('Firebase 数据库初始化成功');
+                    // 重新初始化DataStore，确保Firebase可用
+                    console.log('重新初始化DataStore以使用Firebase');
+                    api.initData();
                 } catch (error) {
                     console.error('Firebase 初始化失败:', error);
                     database = null;
@@ -430,9 +452,6 @@ window.onload = function() {
             }
         }, 2000);
     }
-    
-    // 初始化数据存储
-    initDataStore();
     
     // 检查登录状态
     const savedUser = localStorage.getItem('currentUser');
