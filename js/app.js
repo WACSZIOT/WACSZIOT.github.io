@@ -903,10 +903,13 @@ async function updateUsersTable() {
 
 // 添加进货
 async function addPurchase() {
+    console.log('开始添加进货');
     const name = document.getElementById('purchase-name').value;
     const quantity = parseInt(document.getElementById('purchase-quantity').value);
     const costPrice = parseFloat(document.getElementById('purchase-cost').value);
     const sellPrice = parseFloat(document.getElementById('purchase-price').value);
+    
+    console.log('进货信息:', { name, quantity, costPrice, sellPrice });
     
     if (!name || isNaN(quantity) || isNaN(costPrice) || isNaN(sellPrice)) {
         alert('请填写完整信息');
@@ -922,15 +925,19 @@ async function addPurchase() {
             sellPrice,
             date: new Date().toLocaleString()
         };
-        await api.addPurchase(purchaseData);
+        console.log('准备添加进货记录:', purchaseData);
+        const purchaseResult = await api.addPurchase(purchaseData);
+        console.log('添加进货记录结果:', purchaseResult);
         
         // 更新库存
-        await api.addInventory({
+        console.log('准备更新库存');
+        const inventoryResult = await api.addInventory({
             name,
             quantity,
             costPrice,
             sellPrice
         });
+        console.log('更新库存结果:', inventoryResult);
         
         // 清空表单
         document.getElementById('purchase-name').value = '';
@@ -939,7 +946,9 @@ async function addPurchase() {
         document.getElementById('purchase-price').value = '';
         
         // 同步数据
+        console.log('准备同步数据');
         await syncData();
+        console.log('数据同步完成');
         
         alert('进货成功');
     } catch (error) {
