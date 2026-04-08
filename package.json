@@ -1,0 +1,17 @@
+{
+  "name": "inventory-management-system",
+  "version": "1.0.0",
+  "description": "Inventory management system with Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "inventory",
+    "management",
+    "node.js"
+  ],
+  "author": "",
+  "license": "MIT"
+}
