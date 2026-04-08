@@ -1,23 +1,9 @@
-// Firebase 配置
-const firebaseConfig = {
-    apiKey: "AIzaSyC9qfBkq3W4d1e7X7e5X6e8e9e0e1e2e3e4",
-    authDomain: "warehouse-management-7c4a9.firebaseapp.com",
-    databaseURL: "https://warehouse-management-7c4a9-default-rtdb.firebaseio.com",
-    projectId: "warehouse-management-7c4a9",
-    storageBucket: "warehouse-management-7c4a9.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:1234567890abcdef"
-};
+// Firebase 配置 - 使用全局配置
+// 配置在HTML文件中定义
 
 // 全局变量
 let firebaseApp = null;
 let database = null;
-
-// 初始化 Firebase
-if (typeof firebase !== 'undefined') {
-    firebaseApp = firebase.initializeApp(firebaseConfig);
-    database = firebase.database();
-}
 
 // 初始化数据存储
 function initDataStore() {
@@ -42,6 +28,7 @@ class DataStore {
         // 检查 Firebase 是否可用
         this.useFirebase = typeof firebase !== 'undefined' && database !== null;
         this.database = database;
+        console.log('DataStore 初始化，useFirebase:', this.useFirebase);
         
         // 初始化数据
         this.initData();
@@ -399,6 +386,8 @@ class DataStore {
             return { success: true };
         }
     }
+
+
 }
 
 const api = new DataStore();
@@ -406,20 +395,44 @@ let currentUser = null;
 
 // 页面加载时检查登录状态和 URL 参数
 window.onload = function() {
+    // 检查 Firebase SDK 是否加载成功
+    if (typeof firebase !== 'undefined') {
+        console.log('Firebase SDK 加载成功');
+        try {
+            // 使用HTML中已经初始化的Firebase
+            database = firebase.database();
+            console.log('Firebase 数据库初始化成功:', database);
+            
+            // 测试数据库连接
+            const connectedRef = database.ref('.info/connected');
+            connectedRef.on('value', function(snapshot) {
+                console.log('Firebase 数据库连接状态:', snapshot.val());
+            });
+        } catch (error) {
+            console.error('Firebase 初始化失败:', error);
+            database = null;
+        }
+    } else {
+        console.error('Firebase SDK 未加载');
+        // 尝试延迟初始化，给 SDK 更多加载时间
+        setTimeout(function() {
+            if (typeof firebase !== 'undefined') {
+                console.log('Firebase SDK 加载成功，延迟初始化');
+                try {
+                    database = firebase.database();
+                    console.log('Firebase 数据库初始化成功');
+                } catch (error) {
+                    console.error('Firebase 初始化失败:', error);
+                    database = null;
+                }
+            } else {
+                console.error('Firebase SDK 仍然未加载');
+            }
+        }, 2000);
+    }
+    
     // 初始化数据存储
     initDataStore();
-    
-    // 检查 URL 参数中的数据
-    const urlParams = new URLSearchParams(window.location.search);
-    const dataParam = urlParams.get('data');
-    if (dataParam) {
-        const result = api.importData(dataParam);
-        if (result.success) {
-            alert('数据导入成功');
-        } else {
-            alert('数据导入失败');
-        }
-    }
     
     // 检查登录状态
     const savedUser = localStorage.getItem('currentUser');
@@ -538,30 +551,46 @@ async function showMainSection() {
 // 设置 Firebase 数据监听
 function setupFirebaseListeners() {
     // 检查 Firebase 是否可用
-    if (typeof firebase !== 'undefined' && database !== null) {
+    if (typeof window.firebase !== 'undefined' && database !== null) {
+        console.log('设置 Firebase 数据监听');
         // 监听库存数据变化
-        database.ref('inventory').on('value', async (snapshot) => {
-            console.log('库存数据更新');
+        const inventoryRef = database.ref('inventory');
+        inventoryRef.on('value', async (snapshot) => {
+            console.log('库存数据更新:', snapshot.val());
             await updateInventoryTable();
         });
         
         // 监听进货数据变化
-        database.ref('purchases').on('value', async (snapshot) => {
-            console.log('进货数据更新');
+        const purchasesRef = database.ref('purchases');
+        purchasesRef.on('value', async (snapshot) => {
+            console.log('进货数据更新:', snapshot.val());
             await updatePurchaseTable();
         });
         
         // 监听销货数据变化
-        database.ref('sales').on('value', async (snapshot) => {
-            console.log('销货数据更新');
+        const salesRef = database.ref('sales');
+        salesRef.on('value', async (snapshot) => {
+            console.log('销货数据更新:', snapshot.val());
             await updateSalesTable();
         });
         
         // 监听用户数据变化
-        database.ref('users').on('value', async (snapshot) => {
-            console.log('用户数据更新');
+        const usersRef = database.ref('users');
+        usersRef.on('value', async (snapshot) => {
+            console.log('用户数据更新:', snapshot.val());
             await updateUsersTable();
         });
+    } else {
+        console.error('Firebase 不可用，无法设置数据监听');
+        // 尝试延迟设置，给 Firebase 更多加载时间
+        setTimeout(function() {
+            if (typeof window.firebase !== 'undefined' && database !== null) {
+                console.log('Firebase 已可用，设置数据监听');
+                setupFirebaseListeners();
+            } else {
+                console.error('Firebase 仍然不可用');
+            }
+        }, 2000);
     }
 }
 
@@ -1042,15 +1071,7 @@ async function deleteUser(username) {
     }
 }
 
-// 导出数据
-function exportData() {
-    alert('数据已自动同步到云端，无需手动导出');
-}
 
-// 导入数据
-function importData() {
-    alert('数据已自动从云端同步，无需手动导入');
-}
 
 // 同步数据
 async function syncData() {

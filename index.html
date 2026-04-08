@@ -6,9 +6,51 @@
     <title>仓库管理系统</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/mobile.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
+    <!-- Firebase SDK (使用传统脚本标签) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9qfBkq3W4d1e7X7e5X6e8e9e0e1e2e3e4",
+            authDomain: "warehouse-management-7c4a9.firebaseapp.com",
+            databaseURL: "https://warehouse-management-7c4a9-default-rtdb.firebaseio.com",
+            projectId: "warehouse-management-7c4a9",
+            storageBucket: "warehouse-management-7c4a9.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:1234567890abcdef"
+        };
+        
+        // 初始化 Firebase
+        try {
+            // 检查 Firebase 是否加载成功
+            if (typeof firebase !== 'undefined') {
+                console.log('Firebase SDK 加载成功');
+                
+                // 初始化 Firebase 应用
+                const app = firebase.initializeApp(firebaseConfig);
+                console.log('Firebase App 初始化成功:', app);
+                
+                // 初始化数据库
+                const database = firebase.database();
+                console.log('Firebase 数据库初始化成功:', database);
+                
+                // 测试数据库连接
+                const connectedRef = database.ref('.info/connected');
+                connectedRef.on('value', function(snapshot) {
+                    console.log('Firebase 数据库连接状态:', snapshot.val());
+                });
+                
+                // 将 Firebase 对象暴露到全局作用域
+                window.firebase = firebase;
+                console.log('Firebase 对象已暴露到全局作用域');
+            } else {
+                console.error('Firebase SDK 未加载');
+            }
+        } catch (error) {
+            console.error('Firebase 初始化失败:', error);
+        }
+    </script>
 </head>
 <body>
     <div class="container" id="app">
@@ -33,8 +75,6 @@
                 <h1>仓库管理系统</h1>
                 <div class="user-info">
                     <span id="current-user"></span>
-                    <button onclick="exportData()">导出数据</button>
-                    <button onclick="importData()">导入数据</button>
                     <button onclick="logout()">退出</button>
                 </div>
             </header>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 测试</title>
+    <!-- 内联 Firebase SDK 模拟 -->
+    <script>
+        // 模拟 Firebase SDK
+        var firebase = {
+            initializeApp: function(config) {
+                console.log('Firebase App 初始化成功:', config);
+                return { name: 'test-app' };
+            },
+            database: function() {
+                console.log('Firebase Database 初始化成功');
+                return {
+                    ref: function(path) {
+                        return {
+                            on: function(event, callback) {
+                                console.log('Firebase 监听事件:', event);
+                                callback({ val: function() { return true; } });
+                            },
+                            once: function(event, callback) {
+                                console.log('Firebase 单次事件:', event);
+                                callback({ val: function() { return []; }, exists: function() { return false; } });
+                            },
+                            set: function(data) {
+                                console.log('Firebase 设置数据:', data);
+                                return Promise.resolve();
+                            }
+                        };
+                    }
+                };
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>Firebase 测试</h1>
+    <div id="firebase-status" style="background: red; color: white; padding: 10px;">Firebase SDK 加载状态: 测试中...</div>
+    <script>
+        // 测试 Firebase SDK 加载状态
+        var firebaseLoaded = typeof firebase !== 'undefined';
+        document.getElementById('firebase-status').innerHTML = 'Firebase SDK 加载状态: ' + firebaseLoaded;
+        console.log('Firebase SDK 加载状态:', firebaseLoaded);
+        if (firebaseLoaded) {
+            console.log('Firebase SDK 已加载');
+            document.getElementById('firebase-status').style.background = 'green';
+            
+            // 测试 Firebase 初始化
+            try {
+                var firebaseConfig = {
+                    apiKey: "test-api-key",
+                    authDomain: "test-auth-domain",
+                    databaseURL: "test-database-url",
+                    projectId: "test-project-id"
+                };
+                var app = firebase.initializeApp(firebaseConfig);
+                var database = firebase.database();
+                console.log('Firebase 初始化成功');
+            } catch (error) {
+                console.error('Firebase 初始化失败:', error);
+            }
+        } else {
+            console.log('Firebase SDK 未加载');
+            document.getElementById('firebase-status').style.background = 'red';
+        }
+    </script>
+</body>
+</html>
