@@ -6,6 +6,17 @@
     <title>仓库管理系统</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/mobile.css">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Supabase 配置
+        const supabaseUrl = 'https://krkgubkujvblbjtuxbhy.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtya2d1Ymt1anZibGJqdHV4Ymh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MDI0NTYsImV4cCI6MjA5MTE3ODQ1Nn0.Zh0g3xsA7c2Y79ZTKsnZ77e6T7Dp3lmJjP8LHVG4HJg';
+        
+        // 初始化 Supabase
+        window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        console.log('Supabase 初始化成功:', window.supabase);
+    </script>
 </head>
 <body>
     <div class="container" id="app">
@@ -30,8 +41,6 @@
                 <h1>仓库管理系统</h1>
                 <div class="user-info">
                     <span id="current-user"></span>
-                    <button onclick="exportData()">导出数据</button>
-                    <button onclick="importData()">导入数据</button>
                     <button onclick="logout()">退出</button>
                 </div>
             </header>

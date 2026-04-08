@@ -1,112 +1,356 @@
-// API接口管理
-class ApiClient {
+// Supabase 配置 - 使用全局配置
+// 配置在HTML文件中定义
+
+// 全局变量
+// supabase 变量在HTML文件中初始化
+
+// 初始化数据存储
+function initDataStore() {
+    // 不需要本地存储，只使用Supabase
+    console.log('初始化数据存储，只使用Supabase');
+}
+
+// 数据存储管理（使用 Supabase）
+class DataStore {
     constructor() {
-        // 使用当前页面的主机地址，确保手机端也能访问
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        const port = 8083;
-        this.baseUrl = `${protocol}//${host}:${port}/api`;
+        // 初始化数据
+        this.initData();
+    }
+    
+    // 检查 Supabase 是否可用
+    get useSupabase() {
+        return typeof window.supabase !== 'undefined' && window.supabase !== null;
+    }
+    
+    // 获取 Supabase 实例
+    get client() {
+        return window.supabase;
     }
 
-    async fetchData(endpoint, options = {}) {
-        try {
-            const response = await fetch(`${this.baseUrl}/${endpoint}`, {
-                ...options,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
+    // 初始化数据
+    async initData() {
+        if (this.useSupabase) {
+            try {
+                // 检查表是否存在，如果不存在则创建
+                await this.createTables();
+                
+                // 检查用户数据是否存在
+                const { data: users } = await this.client.from('users').select('*');
+                if (!users || users.length === 0) {
+                    await this.client.from('users').insert({ username: 'admin', password: 'admin' });
                 }
-            });
-            if (!response.ok) {
-                throw new Error('API请求失败');
+                
+                console.log('Supabase 数据初始化成功');
+            } catch (error) {
+                console.error('Supabase 初始化错误:', error);
             }
-            return await response.json();
+        } else {
+            // Supabase 不可用，延迟重试
+            console.log('Supabase 不可用，延迟初始化数据');
+            setTimeout(() => {
+                this.initData();
+            }, 2000);
+        }
+    }
+    
+    // 创建表
+    async createTables() {
+        try {
+            // 表已经通过SQL直接创建，这里不需要再创建
+            console.log('表已经创建完成');
         } catch (error) {
-            console.error('API请求错误:', error);
-            throw error;
+            console.error('创建表错误:', error);
+            // 表可能已经存在，忽略错误
         }
     }
 
-    // 用户相关API
+    // 用户相关操作
     async getUsers() {
-        return await this.fetchData('users');
+        if (this.useSupabase) {
+            try {
+                const { data: users, error } = await this.client.from('users').select('*');
+                if (error) throw error;
+                return users || [];
+            } catch (error) {
+                console.error('Supabase getUsers error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async addUser(user) {
-        return await this.fetchData('users', {
-            method: 'POST',
-            body: JSON.stringify(user)
-        });
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.client.from('users').insert(user);
+                if (error) throw error;
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase addUser error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async deleteUser(username) {
-        return await this.fetchData('users', {
-            method: 'DELETE',
-            body: JSON.stringify({ username })
-        });
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.client.from('users').delete().eq('username', username);
+                if (error) throw error;
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase deleteUser error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
-    // 库存相关API
+    // 库存相关操作
     async getInventory() {
-        return await this.fetchData('inventory');
+        if (this.useSupabase) {
+            try {
+                const { data: inventory, error } = await this.client.from('inventory').select('*');
+                if (error) throw error;
+                // 转换数据格式，确保字段名称匹配
+                return (inventory || []).map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    costPrice: item.cost_price,
+                    sellPrice: item.sell_price
+                }));
+            } catch (error) {
+                console.error('Supabase getInventory error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async addInventory(item) {
-        return await this.fetchData('inventory', {
-            method: 'POST',
-            body: JSON.stringify(item)
-        });
+        if (this.useSupabase) {
+            try {
+                // 检查商品是否存在
+                const { data: existingItems, error: findError } = await this.client.from('inventory').select('*').eq('name', item.name);
+                if (findError) throw findError;
+                
+                if (existingItems && existingItems.length > 0) {
+                    // 更新现有商品
+                    const existingItem = existingItems[0];
+                    const { error: updateError } = await this.client.from('inventory')
+                        .update({
+                            quantity: existingItem.quantity + item.quantity,
+                            cost_price: item.costPrice,
+                            sell_price: item.sellPrice
+                        })
+                        .eq('id', existingItem.id);
+                    if (updateError) throw updateError;
+                } else {
+                    // 添加新商品
+                    const { error: insertError } = await this.client.from('inventory').insert({
+                        name: item.name,
+                        quantity: item.quantity,
+                        cost_price: item.costPrice,
+                        sell_price: item.sellPrice
+                    });
+                    if (insertError) throw insertError;
+                }
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase addInventory error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async updateInventory(oldName, item) {
-        return await this.fetchData('inventory', {
-            method: 'PUT',
-            body: JSON.stringify({ oldName, ...item })
-        });
+        if (this.useSupabase) {
+            try {
+                // 查找商品
+                const { data: existingItems, error: findError } = await this.client.from('inventory').select('*').eq('name', oldName);
+                if (findError) throw findError;
+                
+                if (existingItems && existingItems.length > 0) {
+                    const existingItem = existingItems[0];
+                    const { error: updateError } = await this.client.from('inventory')
+                        .update({
+                            name: item.name,
+                            cost_price: item.costPrice,
+                            sell_price: item.sellPrice
+                        })
+                        .eq('id', existingItem.id);
+                    if (updateError) throw updateError;
+                    return { success: true };
+                }
+                return { error: 'Item not found' };
+            } catch (error) {
+                console.error('Supabase updateInventory error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async deleteInventory(name) {
-        return await this.fetchData('inventory', {
-            method: 'DELETE',
-            body: JSON.stringify({ name })
-        });
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.client.from('inventory').delete().eq('name', name);
+                if (error) throw error;
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase deleteInventory error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
-    // 进货相关API
+    // 进货相关操作
     async getPurchases() {
-        return await this.fetchData('purchases');
+        if (this.useSupabase) {
+            try {
+                const { data: purchases, error } = await this.client.from('purchases').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                // 转换数据格式，确保字段名称匹配
+                return (purchases || []).map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    costPrice: item.cost_price,
+                    sellPrice: item.sell_price,
+                    date: item.date
+                }));
+            } catch (error) {
+                console.error('Supabase getPurchases error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async addPurchase(purchase) {
-        return await this.fetchData('purchases', {
-            method: 'POST',
-            body: JSON.stringify(purchase)
-        });
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.client.from('purchases').insert({
+                    name: purchase.name,
+                    quantity: purchase.quantity,
+                    cost_price: purchase.costPrice,
+                    sell_price: purchase.sellPrice,
+                    date: purchase.date
+                });
+                if (error) throw error;
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase addPurchase error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
-    // 销货相关API
+    // 销货相关操作
     async getSales() {
-        return await this.fetchData('sales');
+        if (this.useSupabase) {
+            try {
+                const { data: sales, error } = await this.client.from('sales').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                // 转换数据格式，确保字段名称匹配
+                return (sales || []).map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    sellPrice: item.sell_price,
+                    date: item.date
+                }));
+            } catch (error) {
+                console.error('Supabase getSales error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
 
     async addSales(sale) {
-        return await this.fetchData('sales', {
-            method: 'POST',
-            body: JSON.stringify(sale)
-        });
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.client.from('sales').insert({
+                    name: sale.name,
+                    quantity: sale.quantity,
+                    sell_price: sale.sellPrice,
+                    date: sale.date
+                });
+                if (error) throw error;
+                return { success: true };
+            } catch (error) {
+                console.error('Supabase addSales error:', error);
+                throw error;
+            }
+        } else {
+            throw new Error('Supabase 不可用');
+        }
     }
+
+
 }
 
-const api = new ApiClient();
+const api = new DataStore();
 let currentUser = null;
 
-// 页面加载时检查登录状态
+// 页面加载时检查登录状态和 URL 参数
 window.onload = function() {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showMainSection();
+    // 初始化数据存储
+    initDataStore();
+    
+    // 检查 Supabase 是否加载成功
+    if (typeof window.supabase !== 'undefined') {
+        console.log('Supabase SDK 加载成功');
+        try {
+            // 使用HTML中已经初始化的Supabase
+            console.log('Supabase 初始化成功:', window.supabase);
+            
+            // 测试 Supabase 连接
+            window.supabase.auth.getSession().then(({ data: { session } }) => {
+                console.log('Supabase 连接状态:', session ? '已连接' : '未连接');
+            });
+            
+            // 重新初始化DataStore，确保Supabase可用
+            console.log('重新初始化DataStore以使用Supabase');
+            api.initData();
+        } catch (error) {
+            console.error('Supabase 初始化失败:', error);
+        }
+    } else {
+        console.error('Supabase SDK 未加载');
+        // 尝试延迟初始化，给 SDK 更多加载时间
+        setTimeout(function() {
+            if (typeof window.supabase !== 'undefined') {
+                console.log('Supabase SDK 加载成功，延迟初始化');
+                try {
+                    console.log('Supabase 初始化成功');
+                    // 重新初始化DataStore，确保Supabase可用
+                    console.log('重新初始化DataStore以使用Supabase');
+                    api.initData();
+                } catch (error) {
+                    console.error('Supabase 初始化失败:', error);
+                }
+            } else {
+                console.error('Supabase SDK 仍然未加载');
+            }
+        }, 2000);
     }
+    
+    // 不使用本地存储，每次都需要重新登录
+    showLoginSection();
 };
 
 // 登录功能
@@ -120,7 +364,6 @@ async function login() {
         
         if (user) {
             currentUser = user;
-            localStorage.setItem('currentUser', JSON.stringify(user));
             // 登录成功后自动同步数据
             await syncData();
             showMainSection();
@@ -128,7 +371,8 @@ async function login() {
             alert('用户名或密码错误');
         }
     } catch (error) {
-        alert('登录失败，请检查服务器连接');
+        console.error('登录错误:', error);
+        alert('登录失败，请刷新页面重试');
     }
 }
 
@@ -154,14 +398,14 @@ async function register() {
         alert('注册成功');
         showLogin();
     } catch (error) {
-        alert('注册失败，请检查服务器连接');
+        console.error('注册错误:', error);
+        alert('注册失败，请刷新页面重试');
     }
 }
 
 // 退出登录
 function logout() {
     currentUser = null;
-    localStorage.removeItem('currentUser');
     showLoginSection();
 }
 
@@ -196,6 +440,9 @@ async function showMainSection() {
     // 进入主界面时自动同步数据
     await syncData();
     
+    // 设置 Supabase 数据监听，实现自动同步
+    setupSupabaseListeners();
+    
     // 检查是否为手机端
     if (window.innerWidth <= 768) {
         // 显示手机端首页
@@ -207,6 +454,61 @@ async function showMainSection() {
         showModule('inventory');
         // 显示导航栏
         document.querySelector('nav').style.display = 'block';
+    }
+}
+
+// 设置 Supabase 数据监听
+function setupSupabaseListeners() {
+    // 检查 Supabase 是否可用
+    if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
+        console.log('设置 Supabase 数据监听');
+        
+        // 监听库存数据变化
+        window.supabase
+            .channel('inventory-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, async (payload) => {
+                console.log('库存数据更新:', payload);
+                await updateInventoryTable();
+            })
+            .subscribe();
+        
+        // 监听进货数据变化
+        window.supabase
+            .channel('purchases-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, async (payload) => {
+                console.log('进货数据更新:', payload);
+                await updatePurchaseTable();
+            })
+            .subscribe();
+        
+        // 监听销货数据变化
+        window.supabase
+            .channel('sales-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, async (payload) => {
+                console.log('销货数据更新:', payload);
+                await updateSalesTable();
+            })
+            .subscribe();
+        
+        // 监听用户数据变化
+        window.supabase
+            .channel('users-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async (payload) => {
+                console.log('用户数据更新:', payload);
+                await updateUsersTable();
+            })
+            .subscribe();
+    } else {
+        console.error('Supabase 不可用，无法设置数据监听');
+        // 尝试延迟设置，给 Supabase 更多加载时间
+        setTimeout(function() {
+            if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
+                console.log('Supabase 已可用，设置数据监听');
+                setupSupabaseListeners();
+            } else {
+                console.error('Supabase 仍然不可用');
+            }
+        }, 2000);
     }
 }
 
@@ -500,10 +802,13 @@ async function updateUsersTable() {
 
 // 添加进货
 async function addPurchase() {
+    console.log('开始添加进货');
     const name = document.getElementById('purchase-name').value;
     const quantity = parseInt(document.getElementById('purchase-quantity').value);
     const costPrice = parseFloat(document.getElementById('purchase-cost').value);
     const sellPrice = parseFloat(document.getElementById('purchase-price').value);
+    
+    console.log('进货信息:', { name, quantity, costPrice, sellPrice });
     
     if (!name || isNaN(quantity) || isNaN(costPrice) || isNaN(sellPrice)) {
         alert('请填写完整信息');
@@ -519,15 +824,19 @@ async function addPurchase() {
             sellPrice,
             date: new Date().toLocaleString()
         };
-        await api.addPurchase(purchaseData);
+        console.log('准备添加进货记录:', purchaseData);
+        const purchaseResult = await api.addPurchase(purchaseData);
+        console.log('添加进货记录结果:', purchaseResult);
         
         // 更新库存
-        await api.addInventory({
+        console.log('准备更新库存');
+        const inventoryResult = await api.addInventory({
             name,
             quantity,
             costPrice,
             sellPrice
         });
+        console.log('更新库存结果:', inventoryResult);
         
         // 清空表单
         document.getElementById('purchase-name').value = '';
@@ -536,11 +845,14 @@ async function addPurchase() {
         document.getElementById('purchase-price').value = '';
         
         // 同步数据
+        console.log('准备同步数据');
         await syncData();
+        console.log('数据同步完成');
         
         alert('进货成功');
     } catch (error) {
-        alert('进货失败，请检查服务器连接');
+        console.error('进货错误:', error);
+        alert('进货失败，请刷新页面重试');
     }
 }
 
@@ -600,7 +912,8 @@ async function addSales() {
         
         alert('销货成功');
     } catch (error) {
-        alert('销货失败，请检查服务器连接');
+        console.error('销货错误:', error);
+        alert('销货失败，请刷新页面重试');
     }
 }
 
@@ -651,7 +964,8 @@ async function editItem(name) {
             await syncData();
             alert('编辑成功');
         } catch (error) {
-            alert('编辑失败，请检查服务器连接');
+            console.error('编辑错误:', error);
+            alert('编辑失败，请刷新页面重试');
         }
     }
 }
@@ -664,7 +978,8 @@ async function deleteItem(name) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            alert('删除失败，请检查服务器连接');
+            console.error('删除商品错误:', error);
+            alert('删除失败，请刷新页面重试');
         }
     }
 }
@@ -677,25 +992,18 @@ async function deleteUser(username) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            alert('删除失败，请检查服务器连接');
+            console.error('删除用户错误:', error);
+            alert('删除失败，请刷新页面重试');
         }
     }
 }
 
-// 导出数据
-function exportData() {
-    alert('数据已自动同步到服务器，无需手动导出');
-}
 
-// 导入数据
-function importData() {
-    alert('数据已自动从服务器同步，无需手动导入');
-}
 
 // 同步数据
 async function syncData() {
     try {
-        // 从服务器获取最新数据
+        // 更新本地数据
         await updateInventoryTable();
         await updatePurchaseTable();
         await updateSalesTable();

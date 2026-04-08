@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = process.env.PORT || 8083;
+const PORT = 8083;
 const DATA_DIR = path.join(__dirname, 'data');
 
 // 确保数据目录存在
