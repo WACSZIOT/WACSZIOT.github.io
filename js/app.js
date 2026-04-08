@@ -1,459 +1,107 @@
-// Firebase 配置 - 使用全局配置
-// 配置在HTML文件中定义
-
-// 全局变量
-let firebaseApp = null;
-let database = null;
-
-// 初始化数据存储
-function initDataStore() {
-    // 初始化本地存储数据作为备份
-    if (!localStorage.getItem('users')) {
-        localStorage.setItem('users', JSON.stringify([{ username: 'admin', password: 'admin' }]));
-    }
-    if (!localStorage.getItem('inventory')) {
-        localStorage.setItem('inventory', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('purchases')) {
-        localStorage.setItem('purchases', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('sales')) {
-        localStorage.setItem('sales', JSON.stringify([]));
-    }
-}
-
-// 数据存储管理（使用 Firebase 实时数据库和本地存储备份）
-class DataStore {
+// API接口管理
+class ApiClient {
     constructor() {
-        // 初始化数据
-        this.initData();
-    }
-    
-    // 检查 Firebase 是否可用
-    get useFirebase() {
-        return typeof firebase !== 'undefined' && database !== null;
-    }
-    
-    // 获取数据库实例
-    get database() {
-        return database;
+        // 使用当前页面的主机地址，确保手机端也能访问
+        const protocol = window.location.protocol;
+        const host = window.location.hostname;
+        const port = 8083;
+        this.baseUrl = `${protocol}//${host}:${port}/api`;
     }
 
-    // 初始化数据
-    async initData() {
-        if (this.useFirebase) {
-            try {
-                // 检查并初始化 Firebase 数据
-                const usersRef = this.database.ref('users');
-                const inventoryRef = this.database.ref('inventory');
-                const purchasesRef = this.database.ref('purchases');
-                const salesRef = this.database.ref('sales');
-
-                // 检查用户数据是否存在
-                const usersSnapshot = await usersRef.once('value');
-                if (!usersSnapshot.exists()) {
-                    const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
-                    await usersRef.set(localUsers.length > 0 ? localUsers : [{ username: 'admin', password: 'admin' }]);
+    async fetchData(endpoint, options = {}) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
                 }
-
-                // 检查库存数据是否存在
-                const inventorySnapshot = await inventoryRef.once('value');
-                if (!inventorySnapshot.exists()) {
-                    const localInventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-                    await inventoryRef.set(localInventory);
-                }
-
-                // 检查进货数据是否存在
-                const purchasesSnapshot = await purchasesRef.once('value');
-                if (!purchasesSnapshot.exists()) {
-                    const localPurchases = JSON.parse(localStorage.getItem('purchases') || '[]');
-                    await purchasesRef.set(localPurchases);
-                }
-
-                // 检查销货数据是否存在
-                const salesSnapshot = await salesRef.once('value');
-                if (!salesSnapshot.exists()) {
-                    const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
-                    await salesRef.set(localSales);
-                }
-                console.log('Firebase 数据初始化成功');
-            } catch (error) {
-                console.error('Firebase 初始化错误:', error);
+            });
+            if (!response.ok) {
+                throw new Error('API请求失败');
             }
-        } else {
-            // Firebase 不可用，延迟重试
-            console.log('Firebase 不可用，延迟初始化数据');
-            setTimeout(() => {
-                this.initData();
-            }, 2000);
+            return await response.json();
+        } catch (error) {
+            console.error('API请求错误:', error);
+            throw error;
         }
     }
 
-    // 用户相关操作
+    // 用户相关API
     async getUsers() {
-        if (this.useFirebase) {
-            try {
-                const usersRef = this.database.ref('users');
-                const snapshot = await usersRef.once('value');
-                const users = snapshot.val() || [];
-                // 备份到本地存储
-                localStorage.setItem('users', JSON.stringify(users));
-                return users;
-            } catch (error) {
-                console.error('Firebase getUsers error:', error);
-                // 回退到本地存储
-                return JSON.parse(localStorage.getItem('users') || '[]');
-            }
-        } else {
-            return JSON.parse(localStorage.getItem('users') || '[]');
-        }
+        return await this.fetchData('users');
     }
 
     async addUser(user) {
-        if (this.useFirebase) {
-            try {
-                const usersRef = this.database.ref('users');
-                const users = await this.getUsers();
-                users.push(user);
-                await usersRef.set(users);
-                // 备份到本地存储
-                localStorage.setItem('users', JSON.stringify(users));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase addUser error:', error);
-                // 回退到本地存储
-                const users = JSON.parse(localStorage.getItem('users') || '[]');
-                users.push(user);
-                localStorage.setItem('users', JSON.stringify(users));
-                return { success: true };
-            }
-        } else {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
-            users.push(user);
-            localStorage.setItem('users', JSON.stringify(users));
-            return { success: true };
-        }
+        return await this.fetchData('users', {
+            method: 'POST',
+            body: JSON.stringify(user)
+        });
     }
 
     async deleteUser(username) {
-        if (this.useFirebase) {
-            try {
-                const usersRef = this.database.ref('users');
-                const users = await this.getUsers();
-                const filteredUsers = users.filter(user => user.username !== username);
-                await usersRef.set(filteredUsers);
-                // 备份到本地存储
-                localStorage.setItem('users', JSON.stringify(filteredUsers));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase deleteUser error:', error);
-                // 回退到本地存储
-                const users = JSON.parse(localStorage.getItem('users') || '[]');
-                const filteredUsers = users.filter(user => user.username !== username);
-                localStorage.setItem('users', JSON.stringify(filteredUsers));
-                return { success: true };
-            }
-        } else {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
-            const filteredUsers = users.filter(user => user.username !== username);
-            localStorage.setItem('users', JSON.stringify(filteredUsers));
-            return { success: true };
-        }
+        return await this.fetchData('users', {
+            method: 'DELETE',
+            body: JSON.stringify({ username })
+        });
     }
 
-    // 库存相关操作
+    // 库存相关API
     async getInventory() {
-        if (this.useFirebase) {
-            try {
-                const inventoryRef = this.database.ref('inventory');
-                const snapshot = await inventoryRef.once('value');
-                const inventory = snapshot.val() || [];
-                // 备份到本地存储
-                localStorage.setItem('inventory', JSON.stringify(inventory));
-                return inventory;
-            } catch (error) {
-                console.error('Firebase getInventory error:', error);
-                // 回退到本地存储
-                return JSON.parse(localStorage.getItem('inventory') || '[]');
-            }
-        } else {
-            return JSON.parse(localStorage.getItem('inventory') || '[]');
-        }
+        return await this.fetchData('inventory');
     }
 
     async addInventory(item) {
-        if (this.useFirebase) {
-            try {
-                const inventoryRef = this.database.ref('inventory');
-                const inventory = await this.getInventory();
-                const existingItem = inventory.find(i => i.name === item.name);
-                if (existingItem) {
-                    existingItem.quantity += item.quantity;
-                    existingItem.costPrice = item.costPrice;
-                    existingItem.sellPrice = item.sellPrice;
-                } else {
-                    inventory.push(item);
-                }
-                await inventoryRef.set(inventory);
-                // 备份到本地存储
-                localStorage.setItem('inventory', JSON.stringify(inventory));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase addInventory error:', error);
-                // 回退到本地存储
-                const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-                const existingItem = inventory.find(i => i.name === item.name);
-                if (existingItem) {
-                    existingItem.quantity += item.quantity;
-                    existingItem.costPrice = item.costPrice;
-                    existingItem.sellPrice = item.sellPrice;
-                } else {
-                    inventory.push(item);
-                }
-                localStorage.setItem('inventory', JSON.stringify(inventory));
-                return { success: true };
-            }
-        } else {
-            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-            const existingItem = inventory.find(i => i.name === item.name);
-            if (existingItem) {
-                existingItem.quantity += item.quantity;
-                existingItem.costPrice = item.costPrice;
-                existingItem.sellPrice = item.sellPrice;
-            } else {
-                inventory.push(item);
-            }
-            localStorage.setItem('inventory', JSON.stringify(inventory));
-            return { success: true };
-        }
+        return await this.fetchData('inventory', {
+            method: 'POST',
+            body: JSON.stringify(item)
+        });
     }
 
     async updateInventory(oldName, item) {
-        if (this.useFirebase) {
-            try {
-                const inventoryRef = this.database.ref('inventory');
-                const inventory = await this.getInventory();
-                const itemIndex = inventory.findIndex(i => i.name === oldName);
-                if (itemIndex !== -1) {
-                    inventory[itemIndex] = {
-                        name: item.name,
-                        quantity: inventory[itemIndex].quantity,
-                        costPrice: item.costPrice,
-                        sellPrice: item.sellPrice
-                    };
-                    await inventoryRef.set(inventory);
-                    // 备份到本地存储
-                    localStorage.setItem('inventory', JSON.stringify(inventory));
-                    return { success: true };
-                }
-                return { error: 'Item not found' };
-            } catch (error) {
-                console.error('Firebase updateInventory error:', error);
-                // 回退到本地存储
-                const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-                const itemIndex = inventory.findIndex(i => i.name === oldName);
-                if (itemIndex !== -1) {
-                    inventory[itemIndex] = {
-                        name: item.name,
-                        quantity: inventory[itemIndex].quantity,
-                        costPrice: item.costPrice,
-                        sellPrice: item.sellPrice
-                    };
-                    localStorage.setItem('inventory', JSON.stringify(inventory));
-                    return { success: true };
-                }
-                return { error: 'Item not found' };
-            }
-        } else {
-            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-            const itemIndex = inventory.findIndex(i => i.name === oldName);
-            if (itemIndex !== -1) {
-                inventory[itemIndex] = {
-                    name: item.name,
-                    quantity: inventory[itemIndex].quantity,
-                    costPrice: item.costPrice,
-                    sellPrice: item.sellPrice
-                };
-                localStorage.setItem('inventory', JSON.stringify(inventory));
-                return { success: true };
-            }
-            return { error: 'Item not found' };
-        }
+        return await this.fetchData('inventory', {
+            method: 'PUT',
+            body: JSON.stringify({ oldName, ...item })
+        });
     }
 
     async deleteInventory(name) {
-        if (this.useFirebase) {
-            try {
-                const inventoryRef = this.database.ref('inventory');
-                const inventory = await this.getInventory();
-                const filteredInventory = inventory.filter(item => item.name !== name);
-                await inventoryRef.set(filteredInventory);
-                // 备份到本地存储
-                localStorage.setItem('inventory', JSON.stringify(filteredInventory));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase deleteInventory error:', error);
-                // 回退到本地存储
-                const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-                const filteredInventory = inventory.filter(item => item.name !== name);
-                localStorage.setItem('inventory', JSON.stringify(filteredInventory));
-                return { success: true };
-            }
-        } else {
-            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-            const filteredInventory = inventory.filter(item => item.name !== name);
-            localStorage.setItem('inventory', JSON.stringify(filteredInventory));
-            return { success: true };
-        }
+        return await this.fetchData('inventory', {
+            method: 'DELETE',
+            body: JSON.stringify({ name })
+        });
     }
 
-    // 进货相关操作
+    // 进货相关API
     async getPurchases() {
-        if (this.useFirebase) {
-            try {
-                const purchasesRef = this.database.ref('purchases');
-                const snapshot = await purchasesRef.once('value');
-                const purchases = snapshot.val() || [];
-                // 备份到本地存储
-                localStorage.setItem('purchases', JSON.stringify(purchases));
-                return purchases;
-            } catch (error) {
-                console.error('Firebase getPurchases error:', error);
-                // 回退到本地存储
-                return JSON.parse(localStorage.getItem('purchases') || '[]');
-            }
-        } else {
-            return JSON.parse(localStorage.getItem('purchases') || '[]');
-        }
+        return await this.fetchData('purchases');
     }
 
     async addPurchase(purchase) {
-        if (this.useFirebase) {
-            try {
-                const purchasesRef = this.database.ref('purchases');
-                const purchases = await this.getPurchases();
-                purchases.push(purchase);
-                await purchasesRef.set(purchases);
-                // 备份到本地存储
-                localStorage.setItem('purchases', JSON.stringify(purchases));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase addPurchase error:', error);
-                // 回退到本地存储
-                const purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
-                purchases.push(purchase);
-                localStorage.setItem('purchases', JSON.stringify(purchases));
-                return { success: true };
-            }
-        } else {
-            const purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
-            purchases.push(purchase);
-            localStorage.setItem('purchases', JSON.stringify(purchases));
-            return { success: true };
-        }
+        return await this.fetchData('purchases', {
+            method: 'POST',
+            body: JSON.stringify(purchase)
+        });
     }
 
-    // 销货相关操作
+    // 销货相关API
     async getSales() {
-        if (this.useFirebase) {
-            try {
-                const salesRef = this.database.ref('sales');
-                const snapshot = await salesRef.once('value');
-                const sales = snapshot.val() || [];
-                // 备份到本地存储
-                localStorage.setItem('sales', JSON.stringify(sales));
-                return sales;
-            } catch (error) {
-                console.error('Firebase getSales error:', error);
-                // 回退到本地存储
-                return JSON.parse(localStorage.getItem('sales') || '[]');
-            }
-        } else {
-            return JSON.parse(localStorage.getItem('sales') || '[]');
-        }
+        return await this.fetchData('sales');
     }
 
     async addSales(sale) {
-        if (this.useFirebase) {
-            try {
-                const salesRef = this.database.ref('sales');
-                const sales = await this.getSales();
-                sales.push(sale);
-                await salesRef.set(sales);
-                // 备份到本地存储
-                localStorage.setItem('sales', JSON.stringify(sales));
-                return { success: true };
-            } catch (error) {
-                console.error('Firebase addSales error:', error);
-                // 回退到本地存储
-                const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-                sales.push(sale);
-                localStorage.setItem('sales', JSON.stringify(sales));
-                return { success: true };
-            }
-        } else {
-            const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-            sales.push(sale);
-            localStorage.setItem('sales', JSON.stringify(sales));
-            return { success: true };
-        }
+        return await this.fetchData('sales', {
+            method: 'POST',
+            body: JSON.stringify(sale)
+        });
     }
-
-
 }
 
-const api = new DataStore();
+const api = new ApiClient();
 let currentUser = null;
 
-// 页面加载时检查登录状态和 URL 参数
+// 页面加载时检查登录状态
 window.onload = function() {
-    // 初始化本地存储
-    initDataStore();
-    
-    // 检查 Firebase SDK 是否加载成功
-    if (typeof firebase !== 'undefined') {
-        console.log('Firebase SDK 加载成功');
-        try {
-            // 使用HTML中已经初始化的Firebase
-            database = firebase.database();
-            console.log('Firebase 数据库初始化成功:', database);
-            
-            // 测试数据库连接
-            const connectedRef = database.ref('.info/connected');
-            connectedRef.on('value', function(snapshot) {
-                console.log('Firebase 数据库连接状态:', snapshot.val());
-            });
-            
-            // 重新初始化DataStore，确保Firebase可用
-            console.log('重新初始化DataStore以使用Firebase');
-            api.initData();
-        } catch (error) {
-            console.error('Firebase 初始化失败:', error);
-            database = null;
-        }
-    } else {
-        console.error('Firebase SDK 未加载');
-        // 尝试延迟初始化，给 SDK 更多加载时间
-        setTimeout(function() {
-            if (typeof firebase !== 'undefined') {
-                console.log('Firebase SDK 加载成功，延迟初始化');
-                try {
-                    database = firebase.database();
-                    console.log('Firebase 数据库初始化成功');
-                    // 重新初始化DataStore，确保Firebase可用
-                    console.log('重新初始化DataStore以使用Firebase');
-                    api.initData();
-                } catch (error) {
-                    console.error('Firebase 初始化失败:', error);
-                    database = null;
-                }
-            } else {
-                console.error('Firebase SDK 仍然未加载');
-            }
-        }, 2000);
-    }
-    
-    // 检查登录状态
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -480,8 +128,7 @@ async function login() {
             alert('用户名或密码错误');
         }
     } catch (error) {
-        console.error('登录错误:', error);
-        alert('登录失败，请刷新页面重试');
+        alert('登录失败，请检查服务器连接');
     }
 }
 
@@ -507,8 +154,7 @@ async function register() {
         alert('注册成功');
         showLogin();
     } catch (error) {
-        console.error('注册错误:', error);
-        alert('注册失败，请刷新页面重试');
+        alert('注册失败，请检查服务器连接');
     }
 }
 
@@ -550,9 +196,6 @@ async function showMainSection() {
     // 进入主界面时自动同步数据
     await syncData();
     
-    // 设置 Firebase 数据监听，实现自动同步
-    setupFirebaseListeners();
-    
     // 检查是否为手机端
     if (window.innerWidth <= 768) {
         // 显示手机端首页
@@ -564,52 +207,6 @@ async function showMainSection() {
         showModule('inventory');
         // 显示导航栏
         document.querySelector('nav').style.display = 'block';
-    }
-}
-
-// 设置 Firebase 数据监听
-function setupFirebaseListeners() {
-    // 检查 Firebase 是否可用
-    if (typeof window.firebase !== 'undefined' && database !== null) {
-        console.log('设置 Firebase 数据监听');
-        // 监听库存数据变化
-        const inventoryRef = database.ref('inventory');
-        inventoryRef.on('value', async (snapshot) => {
-            console.log('库存数据更新:', snapshot.val());
-            await updateInventoryTable();
-        });
-        
-        // 监听进货数据变化
-        const purchasesRef = database.ref('purchases');
-        purchasesRef.on('value', async (snapshot) => {
-            console.log('进货数据更新:', snapshot.val());
-            await updatePurchaseTable();
-        });
-        
-        // 监听销货数据变化
-        const salesRef = database.ref('sales');
-        salesRef.on('value', async (snapshot) => {
-            console.log('销货数据更新:', snapshot.val());
-            await updateSalesTable();
-        });
-        
-        // 监听用户数据变化
-        const usersRef = database.ref('users');
-        usersRef.on('value', async (snapshot) => {
-            console.log('用户数据更新:', snapshot.val());
-            await updateUsersTable();
-        });
-    } else {
-        console.error('Firebase 不可用，无法设置数据监听');
-        // 尝试延迟设置，给 Firebase 更多加载时间
-        setTimeout(function() {
-            if (typeof window.firebase !== 'undefined' && database !== null) {
-                console.log('Firebase 已可用，设置数据监听');
-                setupFirebaseListeners();
-            } else {
-                console.error('Firebase 仍然不可用');
-            }
-        }, 2000);
     }
 }
 
@@ -903,13 +500,10 @@ async function updateUsersTable() {
 
 // 添加进货
 async function addPurchase() {
-    console.log('开始添加进货');
     const name = document.getElementById('purchase-name').value;
     const quantity = parseInt(document.getElementById('purchase-quantity').value);
     const costPrice = parseFloat(document.getElementById('purchase-cost').value);
     const sellPrice = parseFloat(document.getElementById('purchase-price').value);
-    
-    console.log('进货信息:', { name, quantity, costPrice, sellPrice });
     
     if (!name || isNaN(quantity) || isNaN(costPrice) || isNaN(sellPrice)) {
         alert('请填写完整信息');
@@ -925,19 +519,15 @@ async function addPurchase() {
             sellPrice,
             date: new Date().toLocaleString()
         };
-        console.log('准备添加进货记录:', purchaseData);
-        const purchaseResult = await api.addPurchase(purchaseData);
-        console.log('添加进货记录结果:', purchaseResult);
+        await api.addPurchase(purchaseData);
         
         // 更新库存
-        console.log('准备更新库存');
-        const inventoryResult = await api.addInventory({
+        await api.addInventory({
             name,
             quantity,
             costPrice,
             sellPrice
         });
-        console.log('更新库存结果:', inventoryResult);
         
         // 清空表单
         document.getElementById('purchase-name').value = '';
@@ -946,14 +536,11 @@ async function addPurchase() {
         document.getElementById('purchase-price').value = '';
         
         // 同步数据
-        console.log('准备同步数据');
         await syncData();
-        console.log('数据同步完成');
         
         alert('进货成功');
     } catch (error) {
-        console.error('进货错误:', error);
-        alert('进货失败，请刷新页面重试');
+        alert('进货失败，请检查服务器连接');
     }
 }
 
@@ -1013,8 +600,7 @@ async function addSales() {
         
         alert('销货成功');
     } catch (error) {
-        console.error('销货错误:', error);
-        alert('销货失败，请刷新页面重试');
+        alert('销货失败，请检查服务器连接');
     }
 }
 
@@ -1065,8 +651,7 @@ async function editItem(name) {
             await syncData();
             alert('编辑成功');
         } catch (error) {
-            console.error('编辑错误:', error);
-            alert('编辑失败，请刷新页面重试');
+            alert('编辑失败，请检查服务器连接');
         }
     }
 }
@@ -1079,8 +664,7 @@ async function deleteItem(name) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            console.error('删除商品错误:', error);
-            alert('删除失败，请刷新页面重试');
+            alert('删除失败，请检查服务器连接');
         }
     }
 }
@@ -1093,18 +677,25 @@ async function deleteUser(username) {
             await syncData();
             alert('删除成功');
         } catch (error) {
-            console.error('删除用户错误:', error);
-            alert('删除失败，请刷新页面重试');
+            alert('删除失败，请检查服务器连接');
         }
     }
 }
 
+// 导出数据
+function exportData() {
+    alert('数据已自动同步到服务器，无需手动导出');
+}
 
+// 导入数据
+function importData() {
+    alert('数据已自动从服务器同步，无需手动导入');
+}
 
 // 同步数据
 async function syncData() {
     try {
-        // 更新本地数据
+        // 从服务器获取最新数据
         await updateInventoryTable();
         await updatePurchaseTable();
         await updateSalesTable();
